@@ -11,6 +11,7 @@
   @keyframes s { to { transform: rotate(360deg); } }
   .err { color:#ff3b3b; }
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 <div><div class="spin" id="spin"></div><div id="t">Redirecting…</div></div>
@@ -42,6 +43,16 @@
     if (!entry) return fail("This QR code is no longer active.");
     const u = new URL(entry.url);
     if (!["http:", "https:"].includes(u.protocol)) return fail("This link is not valid.");
+    // Count the scan (never delays the visitor for more than a moment, and never blocks the redirect).
+    const cu = window.SCAN_COUNTER_URL;
+    if (cu) {
+      try {
+        await Promise.race([
+          fetch(cu.replace(/\/$/, "") + "/hit?c=" + encodeURIComponent(code), { mode: "no-cors", keepalive: true }),
+          new Promise((res) => setTimeout(res, 800)),
+        ]);
+      } catch {}
+    }
     location.replace(u.href);
   } catch { fail("Could not load this link. Please try again."); }
 })();
