@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Changeable QR</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+  :root { --bg:#070707; --card:#121212; --text:#f5f5f5; --muted:#9a9a9a; --line:#2a2a2a; --accent:#16c060; --accent-text:#04140a; --danger:#ff3b3b; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; color:var(--text); font:16px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;
+         background: radial-gradient(900px 500px at 50% -10%, rgba(255,59,59,.18), transparent 60%), var(--bg); background-attachment: fixed; min-height:100vh; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h1 .dot { color: var(--danger); }
+  p.sub { color: var(--muted); margin: 0 0 20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; margin-bottom:16px; box-shadow:0 10px 30px rgba(0,0,0,.5); }
+  label { display:block; font-size:13px; color:var(--muted); margin:0 0 4px; }
+  input { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:transparent; color:var(--text); font:inherit; }
+  input:focus { outline:2px solid var(--accent); outline-offset:1px; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; }
+  .row > div { flex:1 1 200px; }
+  button { padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:transparent; color:var(--text); font:inherit; cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:var(--accent-text); font-weight:600; }
+  button.primary:hover { filter:brightness(1.1); }
+  button.danger { color:var(--danger); }
+  button:disabled { opacity:.5; cursor:wait; }
+  .item { display:flex; gap:14px; align-items:flex-start; }
+  .item canvas { width:120px; height:120px; border-radius:8px; background:#fff; flex:none; }
+  .item .info { flex:1; min-width:0; }
+  .meta { color:var(--muted); font-size:13px; word-break:break-all; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  #msg, #loginMsg { color:var(--danger); min-height:22px; margin-top:8px; }
+  .top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
+  #login { max-width:400px; margin:10vh auto 0; padding:32px 28px; border-top:3px solid var(--danger); }
+  #login .logo { width:56px; height:56px; border-radius:14px; background:#000; border:2px solid var(--accent); display:grid; place-items:center; margin:0 auto 18px; box-shadow:0 0 24px rgba(22,192,96,.35); }
+  #login .logo svg { width:30px; height:30px; }
+  #login h1, #login p.sub { text-align:center; }
+  #login input { background:#000; padding:12px 14px; margin-bottom:12px; }
+  #login button.primary { width:100%; padding:12px; }
+  #login .bar { display:flex; height:4px; border-radius:4px; overflow:hidden; margin-top:22px; }
+  #login .bar span { flex:1; }
+  #login details { color:var(--muted); font-size:13px; margin-top:14px; }
+  #login details a { color:var(--accent); }
+  #loginMsg { text-align:center; }
+  @media (max-width:480px){ .item{flex-direction:column;} }
+</style>
+</head>
+<body>
+<main>
+  <div id="login" class="card" hidden>
+    <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#16c060" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM20 14v7M14 20h3" stroke="#ff3b3b"/></svg></div>
+    <h1>Changeable QR<span class="dot">.</span></h1>
+    <p class="sub">Admin sign in</p>
+    <label for="repo">GitHub repo</label>
+    <input id="repo" placeholder="yourname/qr-generator" autocomplete="off">
+    <label for="token">Access token</label>
+    <input id="token" type="password" placeholder="github_pat_..." autocomplete="off">
+    <button class="primary" id="loginBtn">Sign in</button>
+    <div id="loginMsg"></div>
+    <details>
+      <summary>Where do I get a token?</summary>
+      <p>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub token settings</a>. Under <b>Repository access</b> choose <b>Only select repositories</b> and pick this repo. Under <b>Permissions → Repository permissions</b> set <b>Contents</b> to <b>Read and write</b>. Generate it and paste it here. It is saved only in this browser.</p>
+    </details>
+    <div class="bar"><span style="background:#000;border:1px solid #2a2a2a"></span><span style="background:#ff3b3b"></span><span style="background:#16c060"></span></div>
+  </div>
+
+  <div id="app" hidden>
+    <div class="top">
+      <div>
+        <h1>Changeable QR<span class="dot">.</span></h1>
+        <p class="sub">Print the QR once. Change where it goes anytime.</p>
+      </div>
+      <button id="logout">Sign out</button>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <div><label for="newName">Name</label><input id="newName" placeholder="e.g. Menu"></div>
+        <div style="flex:2 1 300px"><label for="newUrl">Link</label><input id="newUrl" type="url" placeholder="https://example.com"></div>
+      </div>
+      <div style="margin-top:12px"><button class="primary" id="createBtn">Create QR code</button></div>
+      <div id="msg"></div>
+    </div>
+
+    <div class="row" style="align-items:center;margin-bottom:12px">
+      <div style="flex:2 1 220px"><input id="search" placeholder="Search your saved QR codes by name or link"></div>
+      <div id="count" class="meta" style="flex:1 1 120px;text-align:right"></div>
+    </div>
+    <div id="list"></div>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const FILE = "links.json";
+const store = {
+  get(k) { try { return localStorage.getItem(k) || ""; } catch { return ""; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+
+// Guess owner/repo from a github.io address like https://owner.github.io/repo/
+function guessRepo() {
+  if (location.hostname.endsWith(".github.io")) {
+    const owner = location.hostname.split(".")[0];
+    const repo = location.pathname.split("/").filter(Boolean)[0];
+    if (repo && !repo.endsWith(".html")) return owner + "/" + repo;
+  }
+  return "";
+}
+
+let repo = store.get("cq_repo"), token = store.get("cq_token");
+let data = {}, sha = null, busy = false;
+
+async function gh(method, body) {
+  const r = await fetch(`https://api.github.com/repos/${repo}/contents/${FILE}` + (method === "GET" ? "?t=" + Date.now() : ""), {
+    method,
+    headers: { Authorization: "Bearer " + token, Accept: "application/vnd.github+json", "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+    cache: "no-store",
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(j.message || "GitHub request failed"), { status: r.status });
+  return j;
+}
+const decode = (b64) => JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\n/g, "")), (c) => c.charCodeAt(0))) || "{}");
+const encode = (obj) => { const bytes = new TextEncoder().encode(JSON.stringify(obj, null, 2)); let s = ""; bytes.forEach((b) => (s += String.fromCharCode(b))); return btoa(s); };
+
+async function pull() {
+  try {
+    const j = await gh("GET");
+    data = decode(j.content); sha = j.sha;
+  } catch (e) {
+    if (e.status === 404) { data = {}; sha = null; } else throw e;
+  }
+}
+async function push(message) {
+  const j = await gh("PUT", { message, content: encode(data), ...(sha ? { sha } : {}) });
+  sha = j.content.sha;
+}
+// Apply a change on top of the latest data, retrying once if the file changed meanwhile.
+async function change(mutate, message) {
+  if (busy) return; busy = true; document.querySelectorAll("button").forEach((b) => (b.disabled = true));
+  try {
+    for (let i = 0; i < 2; i++) {
+      try { await pull(); mutate(data); await push(message); break; }
+      catch (e) { if (e.status === 409 && i === 0) continue; throw e; }
+    }
+  } finally { busy = false; document.querySelectorAll("button").forEach((b) => (b.disabled = false)); }
+}
+
+const validUrl = (u) => { try { return ["http:", "https:"].includes(new URL(u).protocol); } catch { return false; } };
+const qrLink = (code) => new URL("r.html?c=" + code, location.href).href;
+const newCode = () => { const a = new Uint8Array(4); crypto.getRandomValues(a); return Array.from(a, (b) => b.toString(16).padStart(2, "0")).join(""); };
+
+async function start() {
+  try {
+    await pull();
+    $("login").hidden = true; $("app").hidden = false;
+    try { render(); } catch (err) { console.error(err); $("msg").textContent = "Could not draw some QR codes. Reload the page."; }
+  } catch (e) {
+    $("app").hidden = true; $("login").hidden = false;
+    $("repo").value = repo || guessRepo();
+    if (e.status === 401 || e.status === 403) $("loginMsg").textContent = "That token was not accepted. Check it can read and write this repo's contents.";
+    else if (e.status === 404) $("loginMsg").textContent = "Repo not found. Use the form yourname/repo-name.";
+    else if (repo) $("loginMsg").textContent = e.message;
+  }
+}
+
+let q = "";
+function render() {
+  const rows = Object.entries(data).map(([code, v]) => ({ code, ...v }));
+  $("count").textContent = rows.length + " saved QR code" + (rows.length === 1 ? "" : "s");
+  const shown = rows.filter((c) => !q || c.name.toLowerCase().includes(q) || c.url.toLowerCase().includes(q)).sort((a, b) => b.created - a.created);
+  const list = $("list"); list.innerHTML = "";
+  if (!shown.length) { list.innerHTML = '<p class="sub">' + (rows.length ? "No matches." : "No QR codes yet. Create your first one above.") + "</p>"; return; }
+  shown.forEach((c) => {
+    const el = document.createElement("div");
+    el.className = "card item";
+    el.innerHTML = `
+      <canvas></canvas>
+      <div class="info">
+        <label>Name</label><input class="newname">
+        <label style="margin-top:8px">Link</label><input class="newurl" type="url">
+        <div class="meta" style="margin-top:6px"></div>
+        <div class="actions">
+          <button class="primary save">Save changes</button>
+          <button class="png">Download PNG</button>
+          <button class="svg">Download SVG</button>
+          <button class="del danger">Delete</button>
+        </div>
+      </div>`;
+    el.querySelector(".newname").value = c.name;
+    el.querySelector(".newurl").value = c.url;
+    el.querySelector(".meta").textContent = "created " + new Date(c.created).toLocaleDateString();
+    const canvas = el.querySelector("canvas");
+    QRCode.toCanvas(canvas, qrLink(c.code), { width: 480, margin: 2, errorCorrectionLevel: "M" });
+    const fname = c.name.replace(/\W+/g, "-");
+
+    el.querySelector(".save").onclick = async () => {
+      const name = el.querySelector(".newname").value.trim(), url = el.querySelector(".newurl").value.trim();
+      if (!name) return alert("Please give it a name");
+      if (!validUrl(url)) return alert("Enter a valid http(s) link");
+      try { await change((d) => { if (d[c.code]) { d[c.code].name = name; d[c.code].url = url; } }, "Update " + name); render(); }
+      catch (e) { alert(e.message); }
+    };
+    el.querySelector(".png").onclick = () => { const a = document.createElement("a"); a.href = canvas.toDataURL("image/png"); a.download = fname + ".png"; a.click(); };
+    el.querySelector(".svg").onclick = async () => {
+      const svg = await QRCode.toString(qrLink(c.code), { type: "svg", margin: 2 });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" })); a.download = fname + ".svg"; a.click();
+    };
+    el.querySelector(".del").onclick = async () => {
+      if (!confirm("Delete this QR? Printed copies will stop working.")) return;
+      try { await change((d) => { delete d[c.code]; }, "Delete " + c.name); render(); } catch (e) { alert(e.message); }
+    };
+    list.appendChild(el);
+  });
+}
+
+$("createBtn").onclick = async () => {
+  $("msg").textContent = "";
+  const name = $("newName").value.trim(), url = $("newUrl").value.trim();
+  if (!name) { $("msg").textContent = "Please give it a name"; return; }
+  if (!validUrl(url)) { $("msg").textContent = "Enter a valid http(s) link, starting with https://"; return; }
+  try {
+    await change((d) => { d[newCode()] = { name, url, created: Date.now() }; }, "Add " + name);
+    $("newName").value = ""; $("newUrl").value = ""; render();
+  } catch (e) { $("msg").textContent = e.message; }
+};
+$("search").addEventListener("input", () => { q = $("search").value.trim().toLowerCase(); render(); });
+$("loginBtn").onclick = () => {
+  repo = $("repo").value.trim().replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "").replace(/\/$/, "");
+  token = $("token").value.trim();
+  if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) { $("loginMsg").textContent = "Enter the repo as yourname/repo-name"; return; }
+  if (!token) { $("loginMsg").textContent = "Paste your access token"; return; }
+  $("loginMsg").textContent = "";
+  store.set("cq_repo", repo); store.set("cq_token", token);
+  start();
+};
+$("token").addEventListener("keydown", (e) => { if (e.key === "Enter") $("loginBtn").click(); });
+$("logout").onclick = () => { store.del("cq_token"); token = ""; location.reload(); };
+
+if (repo && token) start(); else { $("login").hidden = false; $("repo").value = repo || guessRepo(); }
+</script>
+</body>
+</html>
